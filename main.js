@@ -6,54 +6,51 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHei
 camera.position.z = 3;
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // Clock
 const clock = new THREE.Clock();
 
-// Shader Material
-const material = new THREE.ShaderMaterial({
-    vertexShader: document.getElementById('vertexShader')?.textContent || `
-        varying vec3 vPos;
-        void main() {
-            vPos = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: document.getElementById('fragmentShader')?.textContent || `
-        uniform float uTime;
-        varying vec3 vPos;
-
-        void main() {
-            vec3 color = 0.5 + 0.5*cos(uTime + vPos*10.0 + vec3(0,2,4));
-            gl_FragColor = vec4(color, 1.0);
-        }
-    `,
-    uniforms: {
-        uTime: { value: 0 }
-    }
-});
-
-// Geometry
-const geometry = new THREE.IcosahedronGeometry(1, 128);
-const mesh = new THREE.Mesh(geometry, material);
-scene.add(mesh);
-
-// Animation Loop
-function animate() {
-    requestAnimationFrame(animate);
-    material.uniforms.uTime.value = clock.getElapsedTime();
-    mesh.rotation.y += 0.002;
-    mesh.rotation.x += 0.001;
-    renderer.render(scene, camera);
+// Load Shaders
+async function loadShader(url) {
+    const res = await fetch(url);
+    return await res.text();
 }
-animate();
+
+async function init() {
+    const vert = await loadShader('shader.vert');
+    const frag = await loadShader('shader.frag');
+
+    const material = new THREE.ShaderMaterial({
+        vertexShader: vert,
+        fragmentShader: frag,
+        uniforms: {
+            uTime: { value: 0 }
+        },
+        transparent: true,
+    });
+
+    const geometry = new THREE.IcosahedronGeometry(1, 128);
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        material.uniforms.uTime.value = clock.getElapsedTime();
+        mesh.rotation.y += 0.002;
+        mesh.rotation.x += 0.001;
+        renderer.render(scene, camera);
+    }
+    animate();
+}
+
+init();
 
 // Handle Resize
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
